@@ -1,13 +1,39 @@
 ---
-- name: "manage worker1 and 2"
-  hosts: all
+- name: "generate war file"
+  hosts: local
   become: true
+  vars:
+          gitdir: "/tmp/addressbook-project-1"
   tasks:
-  - name: "ensure Amit user exists"
-    user:
-      name: amit
-      state: present
-  - name: "ensure Alex user exists"
-    user:
-      name: alex
-      state: present
+          - name: "install maven"
+            apt:
+                    name: maven
+          - name: "clone the addressbook project"
+            git:
+                    repo: 'https://github.com/upshiftnow/addressbook'
+                    dest: "{{ gitdir }}"
+                    version: "master"
+          - name: "compile the addressbook project"
+            command:
+                    chdir: "{{ gitdir }}"
+                    cmd: "mvn package"
+- name: "setup webserver and deploy WAR"
+  hosts: webserver
+  become: true
+  vars:
+          gitdir: "/tmp/addressbook-project-1"
+  tasks:
+          - name: "install tomcat9"
+            apt:
+                    name: tomcat9
+            notify: "enable tomcat service"
+          - name: "deploy WAR file"
+            copy:
+                    src: "{{ gitdir }}/target/addressbook-2.0.war"
+                    dest: "/var/lib/tomcat9/webapps/addressbook.war"
+  handlers:
+          - name: "enable tomcat service"
+            service:
+                    name: tomcat9
+                    state: started
+                    enabled: yes
